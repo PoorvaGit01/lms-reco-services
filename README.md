@@ -38,8 +38,8 @@ Both services use:
 
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd lms-microservices/services
+git clone https://github.com/PoorvaGit01/lms-reco-services.git
+cd lms-reco-services
 
 # Start all services
 docker compose up

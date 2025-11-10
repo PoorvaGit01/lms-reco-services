@@ -1,0 +1,97 @@
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: lms_development
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres_reco:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: reco_development
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_reco_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  lms:
+    build:
+      context: ./lms
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/lms_development
+      RAILS_ENV: development
+      RECO_SERVICE_HOST: reco
+      RECO_SERVICE_PORT: "3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./lms:/rails
+      - bundle_lms:/usr/local/bundle
+    command: >
+      sh -c "
+        export PATH=\"/usr/local/bundle/bin:$PATH\" &&
+        rm -f /rails/tmp/pids/server.pid &&
+        chown -R rails:rails /rails &&
+        gosu rails bundle install &&
+        gosu rails bundle exec rails db:create db:migrate &&
+        gosu rails bundle exec rails server -b 0.0.0.0
+      "
+
+  reco:
+    build:
+      context: ./reco
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3000"
+    environment:
+      RAILS_ENV: development
+      DB_HOST: postgres_reco
+      DB_PORT: "5432"
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: reco_development
+      LMS_SERVICE_URL: http://lms:3000
+      LMS_SERVICE_HOST: lms
+      LMS_SERVICE_PORT: "3000"
+    depends_on:
+      postgres_reco:
+        condition: service_healthy
+    volumes:
+      - ./reco:/rails
+      - bundle_reco:/usr/local/bundle
+    command: >
+      sh -c "
+        export PATH=\"/usr/local/bundle/bin:$PATH\" &&
+        rm -f /rails/tmp/pids/server.pid &&
+        chown -R rails:rails /rails &&
+        gosu rails bundle install &&
+        gosu rails bundle exec rails db:create db:migrate &&
+        gosu rails bundle exec rails server -b 0.0.0.0
+      "
+
+volumes:
+  postgres_data:
+  postgres_reco_data:
+  bundle_lms:
+  bundle_reco:

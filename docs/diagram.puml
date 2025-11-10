@@ -1,0 +1,87 @@
+@startuml LMS Microservices Architecture
+
+!define RECTANGLE class
+
+skinparam componentStyle rectangle
+skinparam linetype ortho
+
+package "LMS Microservices Architecture" {
+  
+  rectangle "LMS Service\n(Port 3000)" as LMS {
+    component "Rails API" as LMS_API
+    component "Sequent CQRS" as LMS_Sequent
+    database "PostgreSQL\n(lms_development)" as LMS_DB {
+      rectangle "Event Store" as LMS_EventStore
+      rectangle "View Schema" as LMS_ViewSchema
+    }
+  }
+  
+  rectangle "Recommendation Service\n(Port 3001)" as Reco {
+    component "Rails API" as Reco_API
+    component "Sequent CQRS" as Reco_Sequent
+    database "PostgreSQL\n(reco_development)" as Reco_DB {
+      rectangle "Event Store" as Reco_EventStore
+      rectangle "View Schema" as Reco_ViewSchema
+    }
+  }
+  
+  rectangle "Domain Models" {
+    rectangle "LMS Domain" as LMS_Domain {
+      [Course Aggregate]
+      [Lesson Aggregate]
+      [Commands]
+      [Events]
+      [Projections]
+    }
+    
+    rectangle "Reco Domain" as Reco_Domain {
+      [Learner History Projection]
+      [Recommendation Service]
+    }
+  }
+}
+
+' Connections
+LMS_API --> LMS_Sequent
+LMS_Sequent --> LMS_EventStore
+LMS_Sequent --> LMS_ViewSchema
+LMS_Domain --> LMS_Sequent
+
+Reco_API --> Reco_Sequent
+Reco_Sequent --> Reco_EventStore
+Reco_Sequent --> Reco_ViewSchema
+Reco_Domain --> Reco_Sequent
+
+' Event flow (future: async messaging)
+LMS_Sequent ..> Reco_Sequent : LessonCompleted Events\n(future: Redis/NATS)
+
+' External clients
+rectangle "API Clients" as Clients
+Clients --> LMS_API : REST API\n/courses, /lessons, /users/stats
+Clients --> Reco_API : REST API\n/users/:id/next_course
+
+' Deployment
+note right of Clients
+  **Deployment: Docker Compose**
+  - LMS Service (Port 3000)
+  - Reco Service (Port 3001)
+  - PostgreSQL Databases
+  - All services containerized
+end note
+
+note right of LMS_Sequent
+  **CQRS/Event-Sourcing**
+  - Commands → Aggregates
+  - Events → Projections
+  - Read Models for queries
+end note
+
+note right of Reco_Sequent
+  **Event Consumption**
+  - Consumes LessonCompleted events
+  - Builds learner history
+  - Provides recommendations
+end note
+
+@enduml
+

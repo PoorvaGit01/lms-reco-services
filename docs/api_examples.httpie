@@ -1,0 +1,340 @@
+# ============================================
+# LMS Microservices API Examples - HTTPie Script
+# ============================================
+#
+# This file contains HTTPie commands for testing all API endpoints
+# of the LMS and Recommendation microservices.
+#
+# INSTALLATION:
+#   pip install httpie
+#   # Or: brew install httpie (macOS)
+#   # Or: apt-get install httpie (Ubuntu/Debian)
+#
+# USAGE:
+#   1. Start services: docker compose up
+#   2. Run individual commands by copying and pasting
+#   3. Or run entire workflow: bash <(grep -v '^#' api_examples.httpie)
+#
+# SERVICES:
+#   - LMS Service: http://localhost:3000
+#   - Recommendation Service: http://localhost:3001
+#
+# NOTES:
+#   - Replace :course_id, :lesson_id with actual UUIDs from responses
+#   - User IDs can be any string (e.g., "user-123", UUID, etc.)
+#   - All responses are JSON
+#   - Use jq for JSON parsing: pip install jq
+#
+# ============================================
+# Prerequisites
+# ============================================
+# 1. Start services: docker compose up
+# 2. Wait for services to be ready (check logs)
+# 3. Services available at:
+#    - LMS Service: http://localhost:3000
+#    - Recommendation Service: http://localhost:3001
+
+# ============================================
+# LMS Service (Port 3000)
+# ============================================
+
+# ============================================
+# Courses API
+# ============================================
+
+# List all courses
+http GET http://localhost:3000/api/courses
+
+# Get course details (without completion %)
+http GET http://localhost:3000/api/courses/:course_id
+
+# Get course details with completion percentage for a user
+http GET http://localhost:3000/api/courses/:course_id user_id==user-123
+
+# Create a new course
+http POST http://localhost:3000/api/courses \
+  title="Introduction to Ruby" \
+  description="Learn Ruby programming fundamentals" \
+  instructor_id="instructor-123"
+
+# Update a course
+http PUT http://localhost:3000/api/courses/:course_id \
+  title="Advanced Ruby" \
+  description="Advanced Ruby programming concepts"
+
+# Delete a course
+http DELETE http://localhost:3000/api/courses/:course_id
+
+# ============================================
+# Lessons API
+# ============================================
+
+# List all lessons
+http GET http://localhost:3000/api/lessons
+
+# List lessons for a specific course
+http GET http://localhost:3000/api/lessons course_id==:course_id
+
+# Get lesson details
+http GET http://localhost:3000/api/lessons/:lesson_id
+
+# Create a new lesson
+http POST http://localhost:3000/api/lessons \
+  course_id="course-uuid" \
+  title="Lesson 1: Ruby Basics" \
+  content="Introduction to Ruby syntax and variables" \
+  order:=1
+
+# Update a lesson
+http PUT http://localhost:3000/api/lessons/:lesson_id \
+  title="Updated Lesson Title" \
+  content="Updated content" \
+  order:=2
+
+# Delete a lesson
+http DELETE http://localhost:3000/api/lessons/:lesson_id
+
+# Mark lesson as completed
+http POST http://localhost:3000/api/lessons/:lesson_id/complete \
+  user_id="user-123"
+
+# ============================================
+# User Statistics API
+# ============================================
+
+# Get learning statistics for a user
+http GET http://localhost:3000/api/users/user-123/stats
+
+# ============================================
+# Recommendation Service (Port 3001)
+# ============================================
+
+# Health Check
+http GET http://localhost:3001/up
+
+# Get next course recommendation for a user
+http GET http://localhost:3001/api/users/user-123/next_course
+
+# ============================================
+# Event Consumption (Internal API)
+# ============================================
+
+# Consume LessonCompleted event (called by LMS service)
+http POST http://localhost:3001/api/events/lesson_completed \
+  event[user_id]="user-123" \
+  event[lesson_id]="lesson-uuid" \
+  event[course_id]="course-uuid" \
+  event[completed_at]="2024-01-01T12:00:00Z"
+
+# ============================================
+# Complete Workflow Example - End to End
+# ============================================
+# This demonstrates a complete learning flow:
+# 1. Create course → 2. Add lessons → 3. Complete lesson
+# 4. Check stats → 5. Get recommendation
+
+# Step 1: Create a course
+COURSE_RESPONSE=$(http POST http://localhost:3000/api/courses \
+  title="Ruby Fundamentals" \
+  description="Learn Ruby from scratch" \
+  instructor_id="instructor-123" --print=b)
+
+COURSE_ID=$(echo $COURSE_RESPONSE | jq -r '.id')
+echo "Created course: $COURSE_ID"
+
+# Step 2: Create lessons for the course
+LESSON1_RESPONSE=$(http POST http://localhost:3000/api/lessons \
+  course_id=$COURSE_ID \
+  title="Introduction to Ruby" \
+  content="Welcome to Ruby programming" \
+  order:=1 --print=b)
+
+LESSON1_ID=$(echo $LESSON1_RESPONSE | jq -r '.id')
+echo "Created lesson 1: $LESSON1_ID"
+
+LESSON2_RESPONSE=$(http POST http://localhost:3000/api/lessons \
+  course_id=$COURSE_ID \
+  title="Variables and Data Types" \
+  content="Understanding variables and data types in Ruby" \
+  order:=2 --print=b)
+
+LESSON2_ID=$(echo $LESSON2_RESPONSE | jq -r '.id')
+echo "Created lesson 2: $LESSON2_ID"
+
+LESSON3_RESPONSE=$(http POST http://localhost:3000/api/lessons \
+  course_id=$COURSE_ID \
+  title="Control Structures" \
+  content="If/else, loops, and conditionals" \
+  order:=3 --print=b)
+
+LESSON3_ID=$(echo $LESSON3_RESPONSE | jq -r '.id')
+echo "Created lesson 3: $LESSON3_ID"
+
+# Step 3: Complete lessons (triggers event to Reco service)
+echo "Completing lessons..."
+http POST http://localhost:3000/api/lessons/$LESSON1_ID/complete \
+  user_id="user-123"
+
+http POST http://localhost:3000/api/lessons/$LESSON2_ID/complete \
+  user_id="user-123"
+
+# Step 4: Check user statistics
+echo "Getting user statistics..."
+http GET http://localhost:3000/api/users/user-123/stats
+
+# Step 5: Get course with completion percentage
+echo "Getting course completion percentage..."
+http GET http://localhost:3000/api/courses/$COURSE_ID user_id==user-123
+
+# Step 6: Get course recommendation (Reco service)
+echo "Getting course recommendation..."
+http GET http://localhost:3001/api/users/user-123/next_course
+
+echo "Complete workflow finished!"
+
+# ============================================
+# Testing Scenarios
+# ============================================
+
+# Scenario 1: New Learner Recommendation
+# (No lesson completions)
+http GET http://localhost:3001/api/users/new-user-456/next_course
+
+# Scenario 2: Existing Learner with Incomplete Courses
+# (Complete some lessons first, then get recommendation)
+http POST http://localhost:3000/api/lessons/:lesson_id/complete user_id="user-789"
+http GET http://localhost:3001/api/users/user-789/next_course
+
+# Scenario 3: Course Completion Percentage
+# (Complete lessons and check percentage)
+http GET http://localhost:3000/api/courses/:course_id user_id==user-123
+
+# Scenario 4: User Statistics
+# (Get complete learning stats)
+http GET http://localhost:3000/api/users/user-123/stats
+
+# ============================================
+# Error Handling Examples
+# ============================================
+
+# Missing required field (should return 422)
+http POST http://localhost:3000/api/courses \
+  title="Test Course"
+  # Missing instructor_id
+
+# Invalid lesson ID (should return 404)
+http GET http://localhost:3000/api/lessons/invalid-uuid
+
+# Missing user_id for completion (should return 400)
+http POST http://localhost:3000/api/lessons/:lesson_id/complete
+
+# ============================================
+# Advanced Usage Examples
+# ============================================
+
+# Pretty print JSON responses
+http GET http://localhost:3000/api/courses | jq
+
+# Save response to file
+http GET http://localhost:3000/api/courses > courses.json
+
+# Include headers in output
+http GET http://localhost:3000/api/courses --print=HhBb
+
+# Verbose output (shows request/response details)
+http GET http://localhost:3000/api/courses --verbose
+
+# Follow redirects
+http GET http://localhost:3000/api/courses --follow
+
+# Custom headers
+http GET http://localhost:3000/api/courses \
+  X-User-Id:user-123 \
+  X-Request-ID:req-456
+
+# Timeout settings
+http GET http://localhost:3000/api/courses --timeout=10
+
+# ============================================
+# Testing Integration Flow (LMS → Reco)
+# ============================================
+
+# 1. Create course and lesson
+COURSE=$(http POST http://localhost:3000/api/courses \
+  title="Test Course" \
+  description="Test" \
+  instructor_id="inst-1" --print=b | jq -r '.id')
+
+LESSON=$(http POST http://localhost:3000/api/lessons \
+  course_id=$COURSE \
+  title="Test Lesson" \
+  content="Test" \
+  order:=1 --print=b | jq -r '.id')
+
+# 2. Complete lesson (this sends event to Reco service)
+http POST http://localhost:3000/api/lessons/$LESSON/complete \
+  user_id="test-user"
+
+# 3. Verify event was received by checking Reco logs
+# docker compose logs reco | grep "LessonCompleted"
+
+# 4. Get recommendation (should use the completed lesson data)
+http GET http://localhost:3001/api/users/test-user/next_course
+
+# ============================================
+# Notes & Tips
+# ============================================
+# 
+# REPLACING PLACEHOLDERS:
+#   - Replace :course_id, :lesson_id with actual UUIDs from responses
+#   - User IDs can be any string (e.g., "user-123", UUID, etc.)
+#
+# TIMESTAMPS:
+#   - All timestamps in ISO8601 format: "2024-01-01T12:00:00Z"
+#
+# JSON PARSING:
+#   - Use jq for JSON parsing: pip install jq
+#   - Example: echo $RESPONSE | jq -r '.id'
+#
+# RESPONSES:
+#   - All responses are JSON
+#   - Success: 200, 201, 204
+#   - Client errors: 400, 404, 422
+#   - Server errors: 500, 502, 503
+#
+# DEBUGGING:
+#   - Use --verbose flag to see full request/response
+#   - Check service logs: docker compose logs lms/reco
+#   - Verify services are running: docker compose ps
+#
+# VARIABLES:
+#   - Save IDs: ID=$(http ... --print=b | jq -r '.id')
+#   - Use variables: http GET .../$ID
+#
+# BATCH OPERATIONS:
+#   - Create multiple resources in a loop
+#   - Use arrays in bash for IDs
+#
+# ============================================
+# Quick Reference
+# ============================================
+#
+# LMS Service (Port 3000):
+#   GET    /api/courses
+#   GET    /api/courses/:id?user_id=:user_id
+#   POST   /api/courses
+#   PUT    /api/courses/:id
+#   DELETE /api/courses/:id
+#   GET    /api/lessons
+#   GET    /api/lessons/:id
+#   POST   /api/lessons
+#   PUT    /api/lessons/:id
+#   DELETE /api/lessons/:id
+#   POST   /api/lessons/:id/complete
+#   GET    /api/users/:id/stats
+#
+# Reco Service (Port 3001):
+#   GET    /api/users/:id/next_course
+#   POST   /api/events/lesson_completed (internal)
+#
+# ============================================

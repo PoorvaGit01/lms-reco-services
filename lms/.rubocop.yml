@@ -1,0 +1,301 @@
+require:
+  - rubocop-performance # Optional, for performance-related cops
+  - rubocop-rails
+
+plugins:
+  - rubocop-performance
+  - rubocop-rails
+
+AllCops:
+  TargetRubyVersion: 3.2
+  TargetRailsVersion: 7.2
+  NewCops: enable # Enable new cops as they are released
+  Include:
+    - 'Rakefile'
+    - 'config.ru'
+    - 'lib/**/*.rake'
+    - 'lib/**/*.rb'
+    - 'app/**/*.rb'
+    - 'db/**/*.rb'
+  Exclude:
+    - 'db/migrate/*.rb'
+    - 'db/schema.rb'
+    - 'test/**/*.rb'
+    - 'bin/'
+
+Rails:
+  Enabled: true
+
+# Commonly used screens these days easily fit more than 80 characters.
+Layout/LineLength:
+  Max: 150
+
+Metrics/CyclomaticComplexity:
+  Max: 10
+
+Metrics/PerceivedComplexity:
+  Max: 10
+
+Metrics/AbcSize:
+  Max: 20
+
+Metrics/ModuleLength:
+  Max: 250
+
+Metrics/ParameterLists:
+  Max: 6
+
+Metrics/MethodLength:
+  Enabled: false # Tracked by CodeClimate
+
+Metrics/BlockLength:
+  Max: 35
+  Exclude:
+    - 'app/**/concerns/**/*.rb'
+    - 'test/**/*'
+
+# The guiding principle of classes is SRP, SRP can't be accurately measured by LoC
+Metrics/ClassLength:
+  Enabled: false # Tracked by CodeClimate
+
+# Modifiers should be indented as deep as method definitions, or as deep as the class/module keyword, depending on configuration.
+Layout/AccessModifierIndentation:
+  Enabled: true
+
+# Here we check if the elements of a multi-line array literal are aligned.
+Layout/ArrayAlignment:
+  Enabled: true
+
+# Check that the keys, separators, and values of a multi-line hash literal are aligned according to configuration.
+Layout/HashAlignment:
+  EnforcedHashRocketStyle: table
+  EnforcedColonStyle: table
+
+# Here we check if the parameters on a multi-line method call or definition are aligned.
+Layout/ParameterAlignment:
+  Enabled: true
+
+# This cop checks whether the end keywords are aligned properly for do end blocks.
+Layout/BlockAlignment:
+  EnforcedStyleAlignWith: either
+
+# This cop checks how the whens of a case expression are indented in relation to its case or end keyword.
+Layout/CaseIndentation:
+  Enabled: true
+
+# Checks the indentation of hanging closing parentheses in method calls, method definitions, and grouped expressions
+Layout/ClosingParenthesisIndentation:
+  Enabled: true
+
+# This cop checks for the class structure.
+Layout/ClassStructure:
+  Enabled: true
+
+# This cops checks the indentation of comments.
+Layout/CommentIndentation:
+  Enabled: true
+
+# This cop checks for conditions that are not on the same line as if/while/until.
+Layout/ConditionPosition:
+  Enabled: true
+
+# This cops checks the alignment of else keywords.
+Layout/ElseAlignment:
+  Enabled: true
+
+# This cop checks the indentation of the first parameter in a method call.
+Layout/FirstArgumentIndentation:
+  Enabled: true
+
+# We do not need to support Ruby 1.9, so this is good to use.
+Style/SymbolArray:
+  Enabled: true
+
+# Mixing the styles looks just silly.
+Style/HashSyntax:
+  EnforcedStyle: ruby19_no_mixed_keys
+  EnforcedShorthandSyntax: never
+
+Style/HashEachMethods:
+  Enabled: true
+
+Style/HashTransformKeys:
+  Enabled: true
+
+Style/HashTransformValues:
+  Enabled: true
+
+# has_key? and has_value? are far more readable than key? and value?
+Style/PreferredHashMethods:
+  Enabled: false
+
+# String#% is by far the least verbose and only object oriented variant.
+Style/FormatString:
+  EnforcedStyle: percent
+
+Style/CollectionMethods:
+  Enabled: true
+  PreferredMethods:
+    # inject seems more common in the community.
+    reduce: "inject"
+
+
+# Either allow this style or don't. Marking it as safe with parenthesis
+# is silly. Let's try to live without them for now.
+Style/ParenthesesAroundCondition:
+  AllowSafeAssignment: false
+Lint/AssignmentInCondition:
+  AllowSafeAssignment: false
+
+# A specialized exception class will take one or more arguments and construct the message from it.
+# So both variants make sense.
+Style/RaiseArgs:
+  Enabled: false
+
+# Fail is an alias of raise. Avoid aliases, it's more cognitive load for no gain.
+# The argument that fail should be used to abort the program is wrong too,
+# there's Kernel#abort for that.
+Style/SignalException:
+  EnforcedStyle: only_raise
+
+# { ... } for multi-line blocks is okay, follow Weirichs rule instead:
+# https://web.archive.org/web/20140221124509/http://onestepback.org/index.cgi/Tech/Ruby/BraceVsDoEnd.rdoc
+Style/BlockDelimiters:
+  Enabled: false
+
+# Enforcing the names of variables? To single letter ones? Just no.
+Style/SingleLineBlockParams:
+  Enabled: false
+
+# do / end blocks should be used for side effects,
+# methods that run a block for side effects and have
+# a useful return value are rare, assign the return
+# value to a local variable for those cases.
+Style/MethodCalledOnDoEndBlock:
+  Enabled: true
+
+# Suppressing exceptions can be perfectly fine, and be it to avoid to
+# explicitly type nil into the rescue since that's what you want to return,
+# or suppressing LoadError for optional dependencies
+Lint/SuppressedException:
+  Enabled: false
+
+# Shadowing outer local variables with block parameters is often useful
+# to not reinvent a new name for the same thing, it highlights the relation
+# between the outer variable and the parameter. The cases where it's actually
+# confusing are rare, and usually bad for other reasons already, for example
+# because the method is too long.
+Lint/ShadowingOuterLocalVariable:
+  Enabled: false
+
+Lint/UselessMethodDefinition:
+  Exclude:
+    - 'app/controllers/**/*'
+
+# There are valid cases, for example debugging Cucumber steps,
+# also they'll fail CI anyway
+Lint/Debugger:
+  Enabled: false
+
+# This is just silly. Calling the argument `other` in all cases makes no sense.
+Naming/BinaryOperatorParameterName:
+  Enabled: false
+
+# This cop enforces the consistent use of action filter methods.
+Rails/ActionFilter:
+  Enabled: true
+
+# Checks that ActiveRecord aliases are not used. The direct method names are more clear and easier to read.
+Rails/ActiveRecordAliases:
+  Enabled: true
+
+# This cop checks that ActiveSupport aliases to core ruby methods are not used.
+Rails/ActiveSupportAliases:
+  Enabled: true
+
+# This cop checks for code that can be written with simpler conditionals using Object#blank? defined by Active Support.
+Rails/Blank:
+  Enabled: true
+
+# This cop checks for the correct use of Date methods, such as Date.today, Date.current etc.
+Rails/Date:
+  Enabled: true
+
+# This cop checks dynamic find_by_* methods. Use find_by instead of dynamic method.
+Rails/DynamicFindBy:
+  Enabled: true
+
+# This cop looks for duplicate values in enum declarations.
+Rails/EnumUniqueness:
+  Enabled: true
+
+# This cop checks that Rails.env is compared using .production?-like methods instead of equality against a string or symbol.
+Rails/EnvironmentComparison:
+  Enabled: true
+
+# This cop is used to identify usages of file path joining process to use Rails.root.join clause. This is to avoid bugs on operating system that don't use '/' as the path separator.
+Rails/FilePath:
+  Enabled: true
+
+# This cop is used to identify usages of where.first and change them to use find_by instead.
+Rails/FindBy:
+  Enabled: true
+
+# This cop is used to identify usages of http methods like get, post, put, patch without
+# the usage of keyword arguments in your tests and change them to use keyword args
+Rails/HttpPositionalArguments:
+  Enabled: true
+
+# This cop checks that methods specified in the filter's only or except options are explicitly defined in the class or module.
+Rails/LexicallyScopedActionFilter:
+  Enabled: true
+
+# This cop checks for the use of output safety calls like html_safe, raw, and safe_concat. 
+# These methods do not escape content. They simply return a SafeBuffer containing the 
+# content as is. Instead, use safe_join to join content and escape it and concat to 
+# concatenate content and escape it, ensuring its safety.
+Rails/OutputSafety:
+  Enabled: true
+
+Style/Documentation:
+  Enabled: false
+
+Style/StringLiterals:
+  Enabled: false
+
+Layout/EmptyLinesAroundAttributeAccessor:
+  Enabled: true
+
+Layout/SpaceAroundMethodCallOperator:
+  Enabled: true
+
+Lint/DeprecatedOpenSSLConstant:
+  Enabled: true
+
+Lint/MixedRegexpCaptureTypes:
+  Enabled: true
+
+Lint/RaiseException:
+  Enabled: true
+
+Lint/StructNewOverride:
+  Enabled: true
+
+Style/ExponentialNotation:
+  Enabled: true
+
+Style/RedundantFetchBlock:
+  Enabled: true
+
+Style/RedundantRegexpCharacterClass:
+  Enabled: true
+
+Style/RedundantRegexpEscape:
+  Enabled: true
+
+Style/SlicingWithRange:
+  Enabled: true
+
+Rails/SkipsModelValidations:
+  AllowedMethods:
+  - update_all

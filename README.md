@@ -94,6 +94,48 @@ rails server -p 3001
 #### Courses
 
 - `GET /api/courses` - List all courses
+  - **Pagination**: `?page=1&per_page=20` (default: page=1, per_page=20, max=100)
+  - **Filtering**: 
+    - `?title=search_term` - Case-insensitive title search
+    - `?instructor_id=instructor-123` - Filter by instructor
+  - **Sorting**: 
+    - `?sort_by=title|created_at|instructor_id` (default: created_at)
+    - `?sort_order=asc|desc` (default: desc)
+  - **Response Format**:
+    ```json
+    {
+      "data": [
+        {
+          "id": "course-uuid",
+          "title": "Course Title",
+          "description": "Description",
+          "instructor_id": "instructor-123",
+          "created_at": "2024-01-01T00:00:00Z",
+          "completion_percentage": null
+        }
+      ],
+      "pagination": {
+        "page": 1,
+        "per_page": 20,
+        "total": 50,
+        "total_pages": 3
+      }
+    }
+    ```
+  - **Examples**:
+    ```bash
+    # Basic pagination
+    GET /api/courses?page=1&per_page=10
+    
+    # Filter by title
+    GET /api/courses?title=Ruby
+    
+    # Sort by title ascending
+    GET /api/courses?sort_by=title&sort_order=asc
+    
+    # Combine all features
+    GET /api/courses?title=Ruby&instructor_id=instructor-1&sort_by=created_at&sort_order=desc&page=1&per_page=20
+    ```
 - `GET /api/courses/:id?user_id=:user_id` - Get course details with completion percentage
 - `POST /api/courses` - Create a new course
   ```json
@@ -210,7 +252,7 @@ Both services target 90%+ test coverage on core domain logic. Coverage reports a
 
 - [ ] Implement async event propagation (Redis Streams/NATS)
 - [ ] Add JWT authentication
-- [ ] Implement pagination and filtering on GET /courses
+- [x] Implement pagination and filtering on GET /courses
 - [ ] Add CI/CD pipeline (GitHub Actions/GitLab CI)
 - [ ] Enhance recommendation algorithm with ML
 - [ ] Add comprehensive API documentation (Swagger/OpenAPI)

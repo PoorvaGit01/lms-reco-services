@@ -42,8 +42,32 @@
 # Courses API
 # ============================================
 
-# List all courses
+# List all courses (with pagination)
 http GET http://localhost:3000/api/courses
+
+# List courses with pagination
+http GET http://localhost:3000/api/courses page==1 per_page==10
+
+# Filter courses by title (case-insensitive search)
+http GET http://localhost:3000/api/courses title=="Ruby"
+
+# Filter courses by instructor_id
+http GET http://localhost:3000/api/courses instructor_id=="instructor-123"
+
+# Sort courses by title ascending
+http GET http://localhost:3000/api/courses sort_by==title sort_order==asc
+
+# Sort courses by created_at descending (default)
+http GET http://localhost:3000/api/courses sort_by==created_at sort_order==desc
+
+# Combine filtering, sorting, and pagination
+http GET http://localhost:3000/api/courses \
+  title=="Ruby" \
+  instructor_id=="instructor-123" \
+  sort_by==created_at \
+  sort_order==desc \
+  page==1 \
+  per_page==20
 
 # Get course details (without completion %)
 http GET http://localhost:3000/api/courses/:course_id
@@ -320,7 +344,9 @@ http GET http://localhost:3001/api/users/test-user/next_course
 # ============================================
 #
 # LMS Service (Port 3000):
-#   GET    /api/courses
+#   GET    /api/courses (with pagination: ?page=1&per_page=20)
+#   GET    /api/courses (with filtering: ?title=search&instructor_id=id)
+#   GET    /api/courses (with sorting: ?sort_by=title&sort_order=asc)
 #   GET    /api/courses/:id?user_id=:user_id
 #   POST   /api/courses
 #   PUT    /api/courses/:id

@@ -37,6 +37,26 @@ User Action → Command → Aggregate → Event → Projection → Read Model �
 
 ### Courses
 - `GET /api/courses` - List all courses
+  - **Pagination**: `?page=1&per_page=20` (default: page=1, per_page=20, max=100)
+  - **Filtering**: 
+    - `?title=search_term` - Case-insensitive title search
+    - `?instructor_id=instructor-123` - Filter by instructor
+  - **Sorting**: 
+    - `?sort_by=title|created_at|instructor_id` (default: created_at)
+    - `?sort_order=asc|desc` (default: desc)
+  - **Response**: 
+    ```json
+    {
+      "data": [...],
+      "pagination": {
+        "page": 1,
+        "per_page": 20,
+        "total": 50,
+        "total_pages": 3
+      }
+    }
+    ```
+  - **Example**: `GET /api/courses?title=Ruby&sort_by=title&sort_order=asc&page=1&per_page=10`
 - `GET /api/courses/:id?user_id=:user_id` - Get course with completion %
 - `POST /api/courses` - Create course
 - `PUT /api/courses/:id` - Update course

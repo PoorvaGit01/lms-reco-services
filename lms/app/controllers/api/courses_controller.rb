@@ -6,7 +6,20 @@ module Api
 
     def index
       courses = Domain::ReadModels::Course.all
-      render json: courses.map { |c| course_json(c) }
+      courses = apply_filters(courses)
+      courses = apply_sorting(courses)
+      total_count = courses.count
+      courses = apply_pagination(courses)
+
+      render json: {
+        data:       courses.map { |c| course_json(c) },
+        pagination: {
+          page:        current_page,
+          per_page:    per_page,
+          total:       total_count,
+          total_pages: (total_count.to_f / per_page).ceil
+        }
+      }
     end
 
     def show
@@ -58,6 +71,40 @@ module Api
       @course = Domain::ReadModels::Course.find(params[:id])
     rescue ActiveRecord::RecordNotFound
       render json: { error: 'Course not found' }, status: :not_found
+    end
+
+    def apply_filters(courses)
+      courses = courses.where("title ILIKE ?", "%#{params[:title]}%") if params[:title].present?
+      courses = courses.where(instructor_id: params[:instructor_id]) if params[:instructor_id].present?
+      courses
+    end
+
+    def apply_sorting(courses)
+      sort_by = params[:sort_by] || 'created_at'
+      sort_order = params[:sort_order] || 'desc'
+
+      allowed_sort_fields = %w[title created_at instructor_id]
+      sort_by = 'created_at' unless allowed_sort_fields.include?(sort_by)
+      sort_order = 'desc' unless %w[asc desc].include?(sort_order.downcase)
+
+      courses.order(sort_by => sort_order.downcase.to_sym)
+    end
+
+    def apply_pagination(courses)
+      offset_value = (current_page - 1) * per_page
+      courses.limit(per_page).offset(offset_value)
+    end
+
+    def current_page
+      page = params[:page].to_i
+      page.positive? ? page : 1
+    end
+
+    def per_page
+      limit = params[:per_page].to_i
+      return 20 if limit.zero?
+
+      [limit, 100].min
     end
 
     def course_json(course)

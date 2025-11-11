@@ -11,7 +11,7 @@ RSpec.describe Api::CoursesController, type: :controller do
   end
 
   describe 'GET #index' do
-    it 'returns all courses' do
+    it 'returns all courses with pagination metadata' do
       course1 = create_course(title: 'Course 1')
       course2 = create_course(title: 'Course 2')
       
@@ -19,7 +19,115 @@ RSpec.describe Api::CoursesController, type: :controller do
       
       expect(response).to have_http_status(:success)
       json = JSON.parse(response.body)
-      expect(json.length).to eq(2)
+      expect(json).to have_key('data')
+      expect(json).to have_key('pagination')
+      expect(json['data'].length).to eq(2)
+      expect(json['pagination']['total']).to eq(2)
+      expect(json['pagination']['page']).to eq(1)
+      expect(json['pagination']['per_page']).to eq(20)
+    end
+
+    it 'filters courses by title' do
+      create_course(title: 'Ruby Programming')
+      create_course(title: 'Python Basics')
+      create_course(title: 'Ruby on Rails')
+      
+      get :index, params: { title: 'Ruby' }
+      
+      expect(response).to have_http_status(:success)
+      json = JSON.parse(response.body)
+      expect(json['data'].length).to eq(2)
+      expect(json['data'].all? { |c| c['title'].include?('Ruby') }).to be true
+    end
+
+    it 'filters courses by instructor_id' do
+      create_course(title: 'Course 1', instructor_id: 'instructor-1')
+      create_course(title: 'Course 2', instructor_id: 'instructor-2')
+      create_course(title: 'Course 3', instructor_id: 'instructor-1')
+      
+      get :index, params: { instructor_id: 'instructor-1' }
+      
+      expect(response).to have_http_status(:success)
+      json = JSON.parse(response.body)
+      expect(json['data'].length).to eq(2)
+      expect(json['data'].all? { |c| c['instructor_id'] == 'instructor-1' }).to be true
+    end
+
+    it 'sorts courses by title ascending' do
+      create_course(title: 'Zebra Course')
+      create_course(title: 'Alpha Course')
+      create_course(title: 'Beta Course')
+      
+      get :index, params: { sort_by: 'title', sort_order: 'asc' }
+      
+      expect(response).to have_http_status(:success)
+      json = JSON.parse(response.body)
+      titles = json['data'].map { |c| c['title'] }
+      expect(titles).to eq(['Alpha Course', 'Beta Course', 'Zebra Course'])
+    end
+
+    it 'sorts courses by created_at descending by default' do
+      course1 = create_course(title: 'First Course')
+      sleep(0.1) # Small delay to ensure different timestamps
+      course2 = create_course(title: 'Second Course')
+      
+      get :index
+      
+      expect(response).to have_http_status(:success)
+      json = JSON.parse(response.body)
+      expect(json['data'].first['title']).to eq('Second Course')
+      expect(json['data'].last['title']).to eq('First Course')
+    end
+
+    it 'paginates courses correctly' do
+      # Create 25 courses
+      25.times { |i| create_course(title: "Course #{i + 1}") }
+      
+      get :index, params: { page: 1, per_page: 10 }
+      
+      expect(response).to have_http_status(:success)
+      json = JSON.parse(response.body)
+      expect(json['data'].length).to eq(10)
+      expect(json['pagination']['page']).to eq(1)
+      expect(json['pagination']['per_page']).to eq(10)
+      expect(json['pagination']['total']).to eq(25)
+      expect(json['pagination']['total_pages']).to eq(3)
+    end
+
+    it 'returns second page correctly' do
+      25.times { |i| create_course(title: "Course #{i + 1}") }
+      
+      get :index, params: { page: 2, per_page: 10 }
+      
+      expect(response).to have_http_status(:success)
+      json = JSON.parse(response.body)
+      expect(json['data'].length).to eq(10)
+      expect(json['pagination']['page']).to eq(2)
+    end
+
+    it 'caps per_page at 100' do
+      150.times { |i| create_course(title: "Course #{i + 1}") }
+      
+      get :index, params: { per_page: 200 }
+      
+      expect(response).to have_http_status(:success)
+      json = JSON.parse(response.body)
+      expect(json['pagination']['per_page']).to eq(100)
+      expect(json['data'].length).to eq(100)
+    end
+
+    it 'combines filtering and pagination' do
+      create_course(title: 'Ruby Course 1', instructor_id: 'instructor-1')
+      create_course(title: 'Ruby Course 2', instructor_id: 'instructor-1')
+      create_course(title: 'Python Course', instructor_id: 'instructor-1')
+      
+      get :index, params: { title: 'Ruby', page: 1, per_page: 1 }
+      
+      expect(response).to have_http_status(:success)
+      json = JSON.parse(response.body)
+      expect(json['data'].length).to eq(1)
+      expect(json['pagination']['total']).to eq(2)
+      expect(json['data'].first['title']).to include('Ruby')
     end
   end
 
@@ -164,12 +272,12 @@ RSpec.describe Api::CoursesController, type: :controller do
 
   private
 
-  def create_course(title: 'Test Course')
+  def create_course(title: 'Test Course', instructor_id: 'instructor-123')
     command = Domain::Commands::CreateCourse.new(
       aggregate_id: Sequent.new_uuid,
       title: title,
       description: 'Description',
-      instructor_id: 'instructor-123'
+      instructor_id: instructor_id
     )
     Sequent.command_service.execute_commands(command)
     
